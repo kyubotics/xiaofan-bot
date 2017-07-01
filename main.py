@@ -8,9 +8,9 @@ data_file = sys.argv[1]
 with open(data_file, 'r', encoding='utf-8') as f:
     data = json.loads(f.read())
 
-value1 = data['value1']  # event from CoolQ
-value2 = data['value2']  # API call from IFTTT
-value3 = data['value3']  # unused
+value1 = data.get('value1')  # event from CoolQ
+value2 = data.get('value2')  # API call from IFTTT
+value3 = data.get('value3')  # unused
 
 config.super_id = data['super_id']
 config.token = data['token']
