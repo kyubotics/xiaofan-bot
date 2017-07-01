@@ -48,7 +48,14 @@ def handle(ev):
         image_url = image_urls[0] if image_urls else ''
         if image_url:
             # wait for the image to be available
-            requests.head(image_url, timeout=8)
+            resp = requests.get(image_url, timeout=8)
+            api_call.handle({
+                'action': 'send_private_msg',
+                'params': {
+                    'user_id': ev['user_id'],
+                    'message': '响应：' + str(resp)
+                }
+            })
         requests.post(config.maker_webhook % 'send_weibo',
                       json={
                           'value1': msg,
