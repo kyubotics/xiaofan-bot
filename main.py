@@ -34,5 +34,4 @@ msg = sp[1].strip()
 if cmd == '发推':
     if str(event['user_id']) != str(super_id):
         exit(0)
-
     requests.post(maker_webhook % 'send_tweet', json={'value1': msg})
