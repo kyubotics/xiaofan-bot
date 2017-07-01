@@ -21,7 +21,6 @@ if value1:
         e = json.loads(value1)
         import event
         event.handle(e)
-        exit(0)
     except Exception:
         pass
 
@@ -30,6 +29,5 @@ if value2:
         a = json.loads(value2)
         import api_call
         api_call.handle(a)
-        exit(0)
     except Exception:
         pass

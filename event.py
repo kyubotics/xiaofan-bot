@@ -11,9 +11,16 @@ def handle(ev):
 
     message = ev['message']
     message_str = ''
+    image_urls = []
     for part in message:
         if part['type'] == 'text':
             message_str += ' ' + part['data']['text']
+        elif part['type'] == 'emoji':
+            message_str += chr(int(part['data']['id']))
+        elif part['type'] == 'image':
+            url = part['data'].get('url')
+            if url:
+                image_urls.append(url)
 
     message_str = message_str.strip()
     sp = re.split('\s|:|：', message_str, maxsplit=1)
@@ -32,6 +39,21 @@ def handle(ev):
             'action': 'send_private_msg',
             'params': {
                 'user_id': ev['user_id'],
-                'message': '已经通知 IFTTT 了，应该稍等一会儿就会发送'
+                'message': '发好了[CQ:face,id=21]'
+            }
+        })
+    elif cmd == '发微博':
+        if str(ev['user_id']) != str(config.super_id):
+            return
+        requests.post(config.maker_webhook % 'send_weibo',
+                      json={
+                          'value1': msg,
+                          'value2': image_urls[0] if image_urls else ''
+                      })
+        api_call.handle({
+            'action': 'send_private_msg',
+            'params': {
+                'user_id': ev['user_id'],
+                'message': '好啦[CQ:face,id=21]'
             }
         })
