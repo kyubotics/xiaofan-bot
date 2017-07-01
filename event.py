@@ -45,10 +45,14 @@ def handle(ev):
     elif cmd == '发微博':
         if str(ev['user_id']) != str(config.super_id):
             return
+        image_url = image_urls[0] if image_urls else ''
+        if image_url:
+            # wait for the image to be available
+            requests.head(image_url, timeout=8)
         requests.post(config.maker_webhook % 'send_weibo',
                       json={
                           'value1': msg,
-                          'value2': image_urls[0] if image_urls else ''
+                          'value2': image_url
                       })
         api_call.handle({
             'action': 'send_private_msg',
