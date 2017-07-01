@@ -3,6 +3,7 @@ import requests
 
 import config
 import api_call
+from helpers import *
 
 
 def handle(ev):
@@ -34,7 +35,7 @@ def handle(ev):
     if cmd == '发推':
         if str(ev['user_id']) != str(config.super_id):
             return
-        requests.post(config.maker_webhook % 'send_tweet', json={'value1': msg})
+        go(requests.post, config.maker_webhook % 'send_tweet', json={'value1': msg})
         api_call.handle({
             'action': 'send_private_msg',
             'params': {
@@ -45,10 +46,7 @@ def handle(ev):
     elif cmd == '发微博':
         if str(ev['user_id']) != str(config.super_id):
             return
-        requests.post(config.maker_webhook % 'send_weibo',
-                      json={
-                          'value1': msg
-                      })
+        go(requests.post, config.maker_webhook % 'send_weibo', json={'value1': msg})
         api_call.handle({
             'action': 'send_private_msg',
             'params': {

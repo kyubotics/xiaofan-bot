@@ -2,6 +2,7 @@ import json
 import sys
 
 import config
+from helpers import *
 
 data_file = sys.argv[1]
 
@@ -31,3 +32,5 @@ if value2:
         api_call.handle(a)
     except Exception:
         pass
+
+wait_for_all_threads()
