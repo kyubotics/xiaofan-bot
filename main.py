@@ -6,7 +6,7 @@ data_file = sys.argv[1]
 
 with open(data_file, 'r', encoding='utf-8') as f:
     data = json.loads(f.read())
-    
+
 token = data['token']
 event = data['event']
 maker_webhook = data['maker_webhook']
@@ -25,6 +25,9 @@ for part in message:
         if url:
             image_urls.append(url)
 
-requests.get('https://ali-east-1.r-c.im:5701/send_private_msg',
-             headers={'Authorization': 'token ' + token},
-             params={'user_id': event['user_id'], 'message': message_str})
+message_str = message_str.strip()
+
+requests.post('https://ali-east-1.r-c.im:5701/send_private_msg',
+              headers={'Authorization': 'token ' + token},
+              json={'user_id': event['user_id'], 'message': message_str})
+
