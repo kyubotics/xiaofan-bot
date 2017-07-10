@@ -45,10 +45,18 @@ def handle_message(ctx):
         return
 
     cmd, text = sp
+    reply = None
     if cmd == 'say':
-        return say(ctx, text)
+        reply = say(ctx, text)
     elif cmd == 'dump':
-        return dump(ctx, text)
+        text = text.strip()
+        if text == 'on':
+            state['dump'] = True
+        elif text == 'off':
+            state['dump'] = False
+
+    if reply:
+        return {'reply': reply, 'at_sender': False}
 
 
 # noinspection PyBroadException
@@ -69,16 +77,7 @@ def say(ctx, text):
     if not reply:
         reply = text.replace('&#91;', '[').replace('&#93', ']').replace('&#44', ',').replace('&amp;', '&')
 
-    if reply:
-        return {'reply': reply, 'at_sender': False}
-
-
-def dump(_, text):
-    text = text.strip()
-    if text == 'on':
-        state['dump'] = True
-    elif text == 'off':
-        state['dump'] = False
+    return reply
 
 
 bot.run(host='127.0.0.1', port=9000)
