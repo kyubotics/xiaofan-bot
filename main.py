@@ -1,4 +1,7 @@
 import json
+import re
+
+import requests
 
 from cqhttp import CQHttp
 
@@ -19,6 +22,35 @@ def handle_group_increase(ctx):
         bot.send(ctx, message='欢迎{}～'.format(name), is_raw=True)
     except:
         pass
+
+
+# noinspection PyBroadException
+@bot.on_request('group')
+def handle_group_request(ctx):
+    print(ctx)
+    if ctx['sub_type'] != 'add':
+        return
+
+    if ctx['group_id'] == 201865589:
+        # CoolQ HTTP API group
+        message = ctx['message'].strip()
+        if not message:
+            return
+        m = re.search(r'答案：(.*)$', message)
+        if not m:
+            return
+
+        message = m.group(1)
+        if message.startswith('v'):
+            message = message.lstrip('v')
+
+        try:
+            resp = requests.get('https://api.github.com/repos/richardchien/coolq-http-api/releases/latest')
+            version = resp.json().get('tag_name').lstrip('v')
+            if message == version or message == version.replace('.', ''):
+                return {'approve': True}
+        except:
+            return
 
 
 @bot.on_message()
