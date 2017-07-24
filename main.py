@@ -45,7 +45,8 @@ def handle_group_request(ctx):
             message = message.lstrip('v')
 
         try:
-            resp = requests.get('https://api.github.com/repos/richardchien/coolq-http-api/releases/latest')
+            resp = requests.get(
+                'https://api.github.com/repos/richardchien/coolq-http-api/releases/latest')
             version = resp.json().get('tag_name').lstrip('v')
             if message == version or message == version.replace('.', ''):
                 return {'approve': True}
@@ -56,7 +57,7 @@ def handle_group_request(ctx):
 @bot.on_message()
 def handle_message(ctx):
     if state['dump']:
-        bot.send(ctx, json.dumps(ctx), is_raw=True)
+        bot.send(ctx, json.dumps(ctx, ensure_ascii=False), is_raw=True)
 
     if not isinstance(ctx['message'], list):
         return
@@ -107,9 +108,7 @@ def say(ctx, text):
             except:
                 pass
     if not reply:
-        reply = text.replace('&#91;', '[').replace('&#93', ']').replace('&#44', ',').replace('&amp;', '&')
+        reply = text.replace('&#91;', '[').replace('&#93', ']').replace(
+            '&#44', ',').replace('&amp;', '&')
 
     return reply
-
-
-bot.run(host='127.0.0.1', port=9000)
