@@ -112,3 +112,6 @@ def say(ctx, text):
             '&#44', ',').replace('&amp;', '&')
 
     return reply
+
+
+bot.run(host='127.0.0.1', port=9000)
