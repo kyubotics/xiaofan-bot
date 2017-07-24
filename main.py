@@ -19,7 +19,7 @@ def handle_group_increase(ctx):
         nickname = bot.get_group_member_info(group_id=ctx['group_id'],
                                              user_id=ctx['user_id']).get('nickname')
         name = nickname if nickname else '新人'
-        bot.send(ctx, message='欢迎{}～'.format(name), is_raw=True)
+        bot.send(ctx, message='欢迎{}～'.format(name))
     except:
         pass
 
