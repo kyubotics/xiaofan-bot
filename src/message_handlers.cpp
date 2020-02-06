@@ -98,15 +98,8 @@ MESSAGE_HANDLER(cqmoe_release, cmd("release") & contains("更新日志"), pvt({1
     auto update_info = std::string(first_space_it, session.event->message.cend());
     cq::utils::string_trim(update_info);
     try {
-        send_group_message(615346135, update_info);
+        send_group_message(218529254, update_info);
         send_message(session.event->target, "发布好啦！");
-    } catch (ApiError &) {
-    }
-}
-
-MESSAGE_HANDLER(say, cmd("say"), pvt({1002647525})) {
-    try {
-        send_message(session.event->target, unescape(session.event->message));
     } catch (ApiError &) {
     }
 }
