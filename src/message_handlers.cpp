@@ -11,7 +11,7 @@ using namespace cq::message;
 using namespace xiaofan::message;
 using namespace xiaofan::message::cond;
 
-MESSAGE_HANDLER(ban, cmd("ban") | (startswith("小凡") & (contains("烟") | contains("禁言"))), grp() & admin()) {
+MESSAGE_HANDLER(ban, command("ban") | (startswith("小凡") & (contains("烟") | contains("禁言"))), group() & admin()) {
     auto e = dynamic_cast<const GroupMessageEvent &>(*session.event);
     e.block();
 
@@ -71,8 +71,8 @@ MESSAGE_HANDLER(ban, cmd("ban") | (startswith("小凡") & (contains("烟") | con
     }
 }
 
-MESSAGE_HANDLER(cqmoe_release, cmd("release") & contains("更新日志"), pvt({1002647525})) {
-    /**
+MESSAGE_HANDLER(cqmoe_release, command("release") & contains("更新日志"), direct({1002647525})) {
+    /*
      * 格式如:
      *
      * 项目: xxx

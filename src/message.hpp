@@ -165,16 +165,16 @@ namespace xiaofan::message {
             }
         };
 
-        struct cmd : Condition {
+        struct command : Condition {
             std::vector<std::string> names;
             std::vector<std::string> starters;
             std::vector<std::string> default_starters = {"/", "!", ".", "！", "。"};
 
-            explicit cmd(std::string name, std::vector<std::string> starters = {})
-                : cmd({std::move(name)}, std::move(starters)) {
+            explicit command(std::string name, std::vector<std::string> starters = {})
+                : command({std::move(name)}, std::move(starters)) {
             }
 
-            cmd(std::initializer_list<std::string> names, std::vector<std::string> starters = {})
+            command(std::initializer_list<std::string> names, std::vector<std::string> starters = {})
                 : names(names), starters(std::move(starters)) {
             }
 
@@ -197,71 +197,81 @@ namespace xiaofan::message {
             }
         };
 
-        struct grp : Condition {
+        struct group : Condition {
             std::vector<int64_t> include_groups;
             std::vector<int64_t> exclude_groups;
 
-            grp() = default;
+            group() = default;
 
-            explicit grp(std::vector<int64_t> include) : include_groups(std::move(include)) {
+            explicit group(std::vector<int64_t> include) : include_groups(std::move(include)) {
             }
 
-            static grp exclude(std::vector<int64_t> exclude) {
-                grp res;
-                res.exclude_groups = std::move(exclude);
-                return res;
+            static group exclude(std::vector<int64_t> exclude) {
+                group g;
+                g.exclude_groups = std::move(exclude);
+                return g;
             }
 
             bool operator()(const cq::MessageEvent &event) const override {
-                const auto is_group = event.detail_type == cq::MessageEvent::DetailType::GROUP;
-                if (!is_group) return false;
+                if (!event.target.is_group()) return false;
 
-                const auto e = dynamic_cast<const cq::GroupMessageEvent &>(event);
+                const auto group_id = event.target.group_id.value_or(0);
                 if (!include_groups.empty()) {
-                    return std::find(include_groups.cbegin(), include_groups.cend(), e.group_id)
-                           != include_groups.cend();
+                    return std::find(include_groups.cbegin(), include_groups.cend(), group_id) != include_groups.cend();
                 }
                 if (!exclude_groups.empty()) {
-                    return std::find(exclude_groups.cbegin(), exclude_groups.cend(), e.group_id)
-                           == exclude_groups.cend();
+                    return std::find(exclude_groups.cbegin(), exclude_groups.cend(), group_id) == exclude_groups.cend();
                 }
                 return true; // both include_groups & exclude_groups are empty
             }
         };
 
-        struct pvt : Condition {
+        struct user : Condition {
             std::vector<int64_t> include_users;
             std::vector<int64_t> exclude_users;
 
-            pvt() = default;
+            user() = default;
 
-            explicit pvt(std::vector<int64_t> include) : include_users(std::move(include)) {
+            explicit user(std::vector<int64_t> include) : include_users(std::move(include)) {
             }
 
-            static pvt exclude(std::vector<int64_t> exclude) {
-                pvt res;
-                res.exclude_users = std::move(exclude);
-                return res;
+            static user exclude(std::vector<int64_t> exclude) {
+                user u;
+                u.exclude_users = std::move(exclude);
+                return u;
             }
 
             bool operator()(const cq::MessageEvent &event) const override {
-                const auto is_private = event.detail_type == cq::MessageEvent::DetailType::PRIVATE;
-                if (!is_private) return false;
-
-                const auto e = dynamic_cast<const cq::PrivateMessageEvent &>(event);
                 if (!include_users.empty()) {
-                    return std::find(include_users.cbegin(), include_users.cend(), e.user_id) != include_users.cend();
+                    return std::find(include_users.cbegin(), include_users.cend(), event.user_id)
+                           != include_users.cend();
                 }
                 if (!exclude_users.empty()) {
-                    return std::find(exclude_users.cbegin(), exclude_users.cend(), e.user_id) == exclude_users.cend();
+                    return std::find(exclude_users.cbegin(), exclude_users.cend(), event.user_id)
+                           == exclude_users.cend();
                 }
                 return true; // both include_users & exclude_users are empty
             }
         };
 
+        struct direct : user {
+            using user::user;
+
+            static direct exclude(std::vector<int64_t> exclude) {
+                direct d;
+                d.exclude_users = std::move(exclude);
+                return d;
+            }
+
+            bool operator()(const cq::MessageEvent &event) const override {
+                if (!event.target.is_private()) return false;
+                return user::operator()(event);
+            }
+        };
+
         struct discuss : Condition {
             bool operator()(const cq::MessageEvent &event) const override {
-                return event.detail_type == cq::MessageEvent::DetailType::DISCUSS;
+                return event.target.is_discuss();
             }
         };
 
@@ -272,17 +282,16 @@ namespace xiaofan::message {
             }
 
             bool operator()(const cq::MessageEvent &event) const override {
-                const auto is_group = event.detail_type == cq::MessageEvent::DetailType::GROUP;
-                if (!is_group) return true; // ignore non-group message event
+                if (!event.target.is_group()) return true; // ignore non-group event
 
-                const auto e = dynamic_cast<const cq::GroupMessageEvent &>(event);
+                const auto group_id = event.target.group_id.value_or(0);
                 try {
-                    const auto mi = cq::get_group_member_info(e.group_id, e.user_id);
+                    const auto mi = cq::get_group_member_info(group_id, event.user_id);
                     return std::find(roles.cbegin(), roles.cend(), mi.role) != roles.cend();
                 } catch (cq::ApiError &) {
                     // try again with cache disabled
                     try {
-                        const auto mi = cq::get_group_member_info(e.group_id, e.user_id, true);
+                        const auto mi = cq::get_group_member_info(group_id, event.user_id, true);
                         return std::find(roles.cbegin(), roles.cend(), mi.role) != roles.cend();
                     } catch (cq::ApiError &) {
                         return false;
