@@ -12,75 +12,28 @@
 
 #include "string.hpp"
 
-namespace xiaofan::message {
+namespace xiaofan {
     struct Condition {
-        virtual bool operator()(const cq::MessageEvent &event) const = 0;
+        virtual bool operator()(const cq::MessageEvent &event) const {
+            return operator()(static_cast<const cq::UserEvent &>(event));
+        }
+
+        virtual bool operator()(const cq::NoticeEvent &event) const {
+            return operator()(static_cast<const cq::UserEvent &>(event));
+        }
+
+        virtual bool operator()(const cq::RequestEvent &event) const {
+            return operator()(static_cast<const cq::UserEvent &>(event));
+        }
+
+        virtual bool operator()(const cq::UserEvent &event) const {
+            return false;
+        }
     };
 
     template <typename T1, typename T2 = Condition>
     using enable_if_is_condition_t =
         std::enable_if_t<std::is_base_of_v<Condition, T1> && std::is_base_of_v<Condition, T2>>;
-
-    class MessageSession {
-    public:
-        std::shared_ptr<cq::MessageEvent> event;
-
-        template <typename E, typename = std::enable_if_t<std::is_base_of_v<cq::MessageEvent, E>>>
-        explicit MessageSession(const E &event) : event(std::make_shared<E>(event)) {
-        }
-    };
-
-    class MessageHandler {
-    public:
-        friend class MessageHandlerBuilder;
-
-        [[nodiscard]] bool check_condition(const cq::MessageEvent &event) const {
-            for (const auto &condition : _conditions) {
-                if (!(*condition)(event)) return false; // conditions must be fully matched
-            }
-            return !_conditions.empty();
-        }
-
-        template <typename E, typename = std::enable_if_t<std::is_base_of_v<cq::MessageEvent, E>>>
-        void run(const E &event) const {
-            if (!_handler_impl) return;
-
-            MessageSession session(event);
-            _handler_impl(session);
-            event.operation = session.event->operation;
-        }
-
-    private:
-        MessageHandler() = default;
-
-        std::vector<std::shared_ptr<Condition>> _conditions;
-        std::function<void(MessageSession &session)> _handler_impl;
-    };
-
-    class MessageHandlerBuilder {
-    public:
-        MessageHandlerBuilder() {
-            _handler = std::shared_ptr<MessageHandler>(new MessageHandler);
-        }
-
-        template <typename T, typename = enable_if_is_condition_t<T>>
-        MessageHandlerBuilder &&condition(const T &cond) && {
-            _handler->_conditions.push_back(std::make_shared<T>(cond));
-            return std::move(*this);
-        }
-
-        MessageHandlerBuilder &&handler(const std::function<void(MessageSession &session)> &handler) && {
-            _handler->_handler_impl = handler;
-            return std::move(*this);
-        }
-
-        std::shared_ptr<MessageHandler> build() && {
-            return _handler;
-        }
-
-    private:
-        std::shared_ptr<MessageHandler> _handler;
-    };
 
     namespace cond {
         struct AndExpr : Condition {
@@ -91,8 +44,25 @@ namespace xiaofan::message {
                 : lhs(std::move(lhs)), rhs(std::move(rhs)) {
             }
 
-            bool operator()(const cq::MessageEvent &event) const override {
+            template <typename E>
+            [[nodiscard]] bool __call__(const E &event) const {
                 return (*lhs)(event) && (*rhs)(event);
+            }
+
+            bool operator()(const cq::MessageEvent &event) const override {
+                return __call__(event);
+            }
+
+            bool operator()(const cq::NoticeEvent &event) const override {
+                return __call__(event);
+            }
+
+            bool operator()(const cq::RequestEvent &event) const override {
+                return __call__(event);
+            }
+
+            bool operator()(const cq::UserEvent &event) const override {
+                return __call__(event);
             }
         };
 
@@ -104,8 +74,25 @@ namespace xiaofan::message {
                 : lhs(std::move(lhs)), rhs(std::move(rhs)) {
             }
 
-            bool operator()(const cq::MessageEvent &event) const override {
+            template <typename E>
+            [[nodiscard]] bool __call__(const E &event) const {
                 return (*lhs)(event) || (*rhs)(event);
+            }
+
+            bool operator()(const cq::MessageEvent &event) const override {
+                return __call__(event);
+            }
+
+            bool operator()(const cq::NoticeEvent &event) const override {
+                return __call__(event);
+            }
+
+            bool operator()(const cq::RequestEvent &event) const override {
+                return __call__(event);
+            }
+
+            bool operator()(const cq::UserEvent &event) const override {
+                return __call__(event);
             }
         };
 
@@ -126,9 +113,26 @@ namespace xiaofan::message {
             explicit All(Args &&... args) : conditions({std::make_shared<Args>(std::forward<Args>(args))...}) {
             }
 
-            bool operator()(const cq::MessageEvent &event) const override {
+            template <typename E>
+            [[nodiscard]] bool __call__(const E &event) const {
                 return std::all_of(
                     conditions.cbegin(), conditions.cend(), [&](const auto &cond) { return (*cond)(event); });
+            }
+
+            bool operator()(const cq::MessageEvent &event) const override {
+                return __call__(event);
+            }
+
+            bool operator()(const cq::NoticeEvent &event) const override {
+                return __call__(event);
+            }
+
+            bool operator()(const cq::RequestEvent &event) const override {
+                return __call__(event);
+            }
+
+            bool operator()(const cq::UserEvent &event) const override {
+                return __call__(event);
             }
         };
 
@@ -197,35 +201,6 @@ namespace xiaofan::message {
             }
         };
 
-        struct group : Condition {
-            std::vector<int64_t> include_groups;
-            std::vector<int64_t> exclude_groups;
-
-            group() = default;
-
-            explicit group(std::vector<int64_t> include) : include_groups(std::move(include)) {
-            }
-
-            static group exclude(std::vector<int64_t> exclude) {
-                group g;
-                g.exclude_groups = std::move(exclude);
-                return g;
-            }
-
-            bool operator()(const cq::MessageEvent &event) const override {
-                if (!event.target.is_group()) return false;
-
-                const auto group_id = event.target.group_id.value_or(0);
-                if (!include_groups.empty()) {
-                    return std::find(include_groups.cbegin(), include_groups.cend(), group_id) != include_groups.cend();
-                }
-                if (!exclude_groups.empty()) {
-                    return std::find(exclude_groups.cbegin(), exclude_groups.cend(), group_id) == exclude_groups.cend();
-                }
-                return true; // both include_groups & exclude_groups are empty
-            }
-        };
-
         struct user : Condition {
             std::vector<int64_t> include_users;
             std::vector<int64_t> exclude_users;
@@ -241,7 +216,7 @@ namespace xiaofan::message {
                 return u;
             }
 
-            bool operator()(const cq::MessageEvent &event) const override {
+            bool operator()(const cq::UserEvent &event) const override {
                 if (!include_users.empty()) {
                     return std::find(include_users.cbegin(), include_users.cend(), event.user_id)
                            != include_users.cend();
@@ -263,14 +238,43 @@ namespace xiaofan::message {
                 return d;
             }
 
-            bool operator()(const cq::MessageEvent &event) const override {
+            bool operator()(const cq::UserEvent &event) const override {
                 if (!event.target.is_private()) return false;
                 return user::operator()(event);
             }
         };
 
+        struct group : Condition {
+            std::vector<int64_t> include_groups;
+            std::vector<int64_t> exclude_groups;
+
+            group() = default;
+
+            explicit group(std::vector<int64_t> include) : include_groups(std::move(include)) {
+            }
+
+            static group exclude(std::vector<int64_t> exclude) {
+                group g;
+                g.exclude_groups = std::move(exclude);
+                return g;
+            }
+
+            bool operator()(const cq::UserEvent &event) const override {
+                if (!event.target.is_group()) return false;
+
+                const auto group_id = event.target.group_id.value_or(0);
+                if (!include_groups.empty()) {
+                    return std::find(include_groups.cbegin(), include_groups.cend(), group_id) != include_groups.cend();
+                }
+                if (!exclude_groups.empty()) {
+                    return std::find(exclude_groups.cbegin(), exclude_groups.cend(), group_id) == exclude_groups.cend();
+                }
+                return true; // both include_groups & exclude_groups are empty
+            }
+        };
+
         struct discuss : Condition {
-            bool operator()(const cq::MessageEvent &event) const override {
+            bool operator()(const cq::UserEvent &event) const override {
                 return event.target.is_discuss();
             }
         };
@@ -281,7 +285,7 @@ namespace xiaofan::message {
             explicit group_roles(std::vector<cq::GroupRole> roles) : roles(std::move(roles)) {
             }
 
-            bool operator()(const cq::MessageEvent &event) const override {
+            bool operator()(const cq::UserEvent &event) const override {
                 if (!event.target.is_group()) return true; // ignore non-group event
 
                 const auto group_id = event.target.group_id.value_or(0);
@@ -310,4 +314,4 @@ namespace xiaofan::message {
             }
         };
     } // namespace cond
-} // namespace xiaofan::message
+} // namespace xiaofan
