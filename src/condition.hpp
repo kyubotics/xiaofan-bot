@@ -5,12 +5,14 @@
 
 #include <algorithm>
 #include <functional>
+#include <iostream>
 #include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "string.hpp"
+#include "traits.hpp"
 
 namespace xiaofan {
     struct Condition {
@@ -30,10 +32,6 @@ namespace xiaofan {
             return false;
         }
     };
-
-    template <typename T1, typename T2 = Condition>
-    using enable_if_is_condition_t =
-        std::enable_if_t<std::is_base_of_v<Condition, T1> && std::is_base_of_v<Condition, T2>>;
 
     namespace cond {
         struct AndExpr : Condition {
@@ -98,19 +96,22 @@ namespace xiaofan {
 
         template <typename TL, typename TR, typename = enable_if_is_condition_t<TL, TR>>
         inline AndExpr operator&(TL &&lhs, TR &&rhs) {
-            return AndExpr(std::make_shared<TL>(std::forward<TL>(lhs)), std::make_shared<TR>(std::forward<TR>(rhs)));
+            return AndExpr(std::make_shared<std::decay_t<TL>>(std::forward<TL>(lhs)),
+                           std::make_shared<std::decay_t<TR>>(std::forward<TR>(rhs)));
         }
 
         template <typename TL, typename TR, typename = enable_if_is_condition_t<TL, TR>>
         inline OrExpr operator|(TL &&lhs, TR &&rhs) {
-            return OrExpr(std::make_shared<TL>(std::forward<TL>(lhs)), std::make_shared<TR>(std::forward<TR>(rhs)));
+            return OrExpr(std::make_shared<std::decay_t<TL>>(std::forward<TL>(lhs)),
+                          std::make_shared<std::decay_t<TR>>(std::forward<TR>(rhs)));
         }
 
         struct All : Condition {
             std::vector<std::shared_ptr<Condition>> conditions;
 
             template <typename... Args>
-            explicit All(Args &&... args) : conditions({std::make_shared<Args>(std::forward<Args>(args))...}) {
+            explicit All(Args &&... args)
+                : conditions({std::make_shared<std::decay_t<Args>>(std::forward<Args>(args))...}) {
             }
 
             template <typename E>
@@ -133,6 +134,26 @@ namespace xiaofan {
 
             bool operator()(const cq::UserEvent &event) const override {
                 return __call__(event);
+            }
+        };
+
+        template <typename E>
+        struct _type {
+            struct condition_t : Condition {
+                bool operator()(const cq::UserEvent &event) const override {
+                    return typeid(event) == typeid(E);
+                }
+            };
+
+            static constexpr condition_t condition{};
+        };
+
+        template <typename E>
+        constexpr auto type = _type<E>::condition;
+
+        struct unblocked : Condition {
+            bool operator()(const cq::UserEvent &event) const override {
+                return !event.blocked();
             }
         };
 

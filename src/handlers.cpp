@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <regex>
 
-#include "app.hpp"
+#include "handler.hpp"
 
 using namespace cq;
 using namespace cq::message;
@@ -20,7 +20,7 @@ constexpr int64_t RELEASE_GROUP_ID = 218529254;
 #endif
 
 REQUEST_HANDLER(approve_invitation, group() & user({SUPERUSER_ID})) {
-    auto e = dynamic_cast<const GroupRequestEvent &>(*session.event);
+    auto e = dynamic_cast<const GroupRequestEvent &>(session.event);
     if (e.sub_type == GroupRequestEvent::SubType::INVITE) {
         try {
             set_group_request(e.flag, e.sub_type, RequestEvent::Operation::APPROVE);
@@ -30,9 +30,9 @@ REQUEST_HANDLER(approve_invitation, group() & user({SUPERUSER_ID})) {
 }
 
 NOTICE_HANDLER(group_notice, group::exclude({RELEASE_GROUP_ID})) {
-    switch (session.event->detail_type) {
+    switch (session.event.detail_type) {
     case NoticeEvent::DetailType::GROUP_ADMIN: {
-        auto e = dynamic_cast<const GroupAdminEvent &>(*session.event);
+        auto e = dynamic_cast<const GroupAdminEvent &>(session.event);
         if (e.user_id == get_login_user_id() && e.sub_type == GroupAdminEvent::SubType::SET) {
             try {
                 send_message(e.target, "感谢群主大佬提拔~");
@@ -42,7 +42,7 @@ NOTICE_HANDLER(group_notice, group::exclude({RELEASE_GROUP_ID})) {
         break;
     }
     case NoticeEvent::DetailType::GROUP_MEMBER_INCREASE: {
-        auto e = dynamic_cast<const GroupMemberIncreaseEvent &>(*session.event);
+        auto e = dynamic_cast<const GroupMemberIncreaseEvent &>(session.event);
         try {
             const auto mi = get_group_member_info(e.group_id, get_login_user_id());
             if (mi.role == GroupRole::MEMBER) {
@@ -62,7 +62,7 @@ NOTICE_HANDLER(group_notice, group::exclude({RELEASE_GROUP_ID})) {
 }
 
 MESSAGE_HANDLER(ban, command("ban") | (startswith("小凡") & (contains("烟") | contains("禁言"))), group() & admin()) {
-    auto e = dynamic_cast<const GroupMessageEvent &>(*session.event);
+    auto e = dynamic_cast<const GroupMessageEvent &>(session.event);
     e.block();
 
     try {
@@ -133,23 +133,23 @@ MESSAGE_HANDLER(cqmoe_release, command("release") & contains("更新日志"), di
      *
      * - xxx
      */
-    session.event->block();
+    session.event.block();
 
     auto first_space_it =
-        std::find_if(session.event->message.cbegin(), session.event->message.cend(), cq::utils::isspace_s);
-    if (first_space_it == session.event->message.cend()) {
+        std::find_if(session.event.message.cbegin(), session.event.message.cend(), cq::utils::isspace_s);
+    if (first_space_it == session.event.message.cend()) {
         try {
-            send_message(session.event->target, "格式不太对~");
+            send_message(session.event.target, "格式不太对~");
         } catch (ApiError &) {
         }
         return;
     }
 
-    auto update_info = std::string(first_space_it, session.event->message.cend());
+    auto update_info = std::string(first_space_it, session.event.message.cend());
     cq::utils::string_trim(update_info);
     try {
         send_group_message(RELEASE_GROUP_ID, update_info);
-        send_message(session.event->target, "发布好啦！");
+        send_message(session.event.target, "发布好啦！");
     } catch (ApiError &) {
     }
 }
