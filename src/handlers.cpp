@@ -20,56 +20,47 @@ constexpr int64_t RELEASE_GROUP_ID = 218529254;
 #endif
 
 REQUEST_HANDLER(approve_invitation, group() & user({SUPERUSER_ID})) {
-    auto e = dynamic_cast<const GroupRequestEvent &>(session.event);
-    if (e.sub_type == GroupRequestEvent::SubType::INVITE) {
+    try {
+        session.approve();
+    } catch (ApiError &) {
+    }
+    session.event.block();
+}
+
+NOTICE_HANDLER(group_admin, type<GroupAdminEvent>, group::exclude({RELEASE_GROUP_ID})) {
+    if (session.event.user_id == get_login_user_id()
+        && session.event_as<GroupAdminEvent>().sub_type == GroupAdminEvent::SubType::SET) {
         try {
-            set_group_request(e.flag, e.sub_type, RequestEvent::Operation::APPROVE);
+            session.send("感谢群主大佬提拔~");
         } catch (ApiError &) {
         }
     }
 }
 
-NOTICE_HANDLER(group_notice, group::exclude({RELEASE_GROUP_ID})) {
-    switch (session.event.detail_type) {
-    case NoticeEvent::DetailType::GROUP_ADMIN: {
-        auto e = dynamic_cast<const GroupAdminEvent &>(session.event);
-        if (e.user_id == get_login_user_id() && e.sub_type == GroupAdminEvent::SubType::SET) {
-            try {
-                send_message(e.target, "感谢群主大佬提拔~");
-            } catch (ApiError &) {
-            }
+NOTICE_HANDLER(welcome_new_member, type<GroupMemberIncreaseEvent>, group::exclude({RELEASE_GROUP_ID})) {
+    const auto &event = session.event_as<GroupMemberIncreaseEvent>();
+    try {
+        const auto mi = get_group_member_info(event.group_id, get_login_user_id());
+        if (mi.role == GroupRole::MEMBER) {
+            return;
         }
-        break;
-    }
-    case NoticeEvent::DetailType::GROUP_MEMBER_INCREASE: {
-        auto e = dynamic_cast<const GroupMemberIncreaseEvent &>(session.event);
         try {
-            const auto mi = get_group_member_info(e.group_id, get_login_user_id());
-            if (mi.role == GroupRole::MEMBER) {
-                return;
-            }
-            try {
-                send_message(e.target, "欢迎新群友👏👏", true);
-            } catch (ApiError &) {
-            }
+            session.send("欢迎新群友👏👏", true);
         } catch (ApiError &) {
         }
-        break;
-    }
-    default:
-        break;
+    } catch (ApiError &) {
     }
 }
 
 MESSAGE_HANDLER(ban, command("ban") | (startswith("小凡") & (contains("烟") | contains("禁言"))), group() & admin()) {
-    auto e = dynamic_cast<const GroupMessageEvent &>(session.event);
-    e.block();
+    const auto &event = session.event_as<GroupMessageEvent>();
+    event.block();
 
     try {
-        const auto mi = get_group_member_info(e.group_id, get_login_user_id(), true);
+        const auto mi = get_group_member_info(event.group_id, get_login_user_id(), true);
         if (mi.role == GroupRole::MEMBER) {
             try {
-                send_message(e.target, "我还不是管理员，禁不了！");
+                session.send("我还不是管理员，禁不了！");
             } catch (ApiError &) {
             }
             return;
@@ -79,7 +70,7 @@ MESSAGE_HANDLER(ban, command("ban") | (startswith("小凡") & (contains("烟") |
 
     std::vector<int64_t> to_ban;
 
-    Message msg(e.message);
+    Message msg(event.message);
     for (const auto &seg : msg) {
         if (seg.type != "at" || seg == MessageSegment::at(get_login_user_id())) {
             continue;
@@ -89,7 +80,7 @@ MESSAGE_HANDLER(ban, command("ban") | (startswith("小凡") & (contains("烟") |
 
     int64_t duration = 30 * 60; // 30 minutes by default
     std::smatch m;
-    std::regex_search(e.message, m, std::regex(R"((\d+)m|(\d+)h|(\d+)d)"));
+    std::regex_search(event.message, m, std::regex(R"((\d+)m|(\d+)h|(\d+)d)"));
     if (!m.str(1).empty()) {
         duration = std::stoll(m.str(1)) * 60;
     } else if (!m.str(2).empty()) {
@@ -100,10 +91,10 @@ MESSAGE_HANDLER(ban, command("ban") | (startswith("小凡") & (contains("烟") |
 
     for (const auto user_id : to_ban) {
         try {
-            const auto mi = get_group_member_info(e.group_id, user_id);
+            const auto mi = get_group_member_info(event.group_id, user_id);
             if (mi.role != GroupRole::MEMBER) {
                 try {
-                    send_message(e.target, MessageSegment::at(user_id) + " 这人官儿大，禁不动！");
+                    session.send(MessageSegment::at(user_id) + " 这人官儿大，禁不动！");
                 } catch (ApiError &) {
                 }
                 return;
@@ -111,10 +102,10 @@ MESSAGE_HANDLER(ban, command("ban") | (startswith("小凡") & (contains("烟") |
         } catch (ApiError &) {
         }
         try {
-            set_group_ban(e.group_id, user_id, duration);
+            set_group_ban(event.group_id, user_id, duration);
         } catch (ApiError &) {
             try {
-                send_message(e.target, "禁言 " + MessageSegment::at(user_id) + " 失败！");
+                session.send("禁言 " + MessageSegment::at(user_id) + " 失败！");
             } catch (ApiError &) {
             }
         }
@@ -139,7 +130,7 @@ MESSAGE_HANDLER(cqmoe_release, command("release") & contains("更新日志"), di
         std::find_if(session.event.message.cbegin(), session.event.message.cend(), cq::utils::isspace_s);
     if (first_space_it == session.event.message.cend()) {
         try {
-            send_message(session.event.target, "格式不太对~");
+            session.send("格式不太对~");
         } catch (ApiError &) {
         }
         return;
@@ -149,7 +140,7 @@ MESSAGE_HANDLER(cqmoe_release, command("release") & contains("更新日志"), di
     cq::utils::string_trim(update_info);
     try {
         send_group_message(RELEASE_GROUP_ID, update_info);
-        send_message(session.event.target, "发布好啦！");
+        session.send("发布好啦！");
     } catch (ApiError &) {
     }
 }
