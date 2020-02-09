@@ -9,6 +9,14 @@
             "type": "cppvsdbg",
             "request": "attach",
             "processId": "${command:pickProcess}"
+        },
+        {
+            "name": "Launch",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/build/app_dev.exe",
+            "cwd": "${workspaceRoot}/build",
+            "externalConsole": true
         }
     ]
 }
