@@ -20,7 +20,7 @@ namespace xiaofan {
             : _impl(std::move(impl)), _condition(std::move(condition)) {
         }
 
-        [[nodiscard]] bool check_condition(const E &event) const {
+        bool check_condition(const E &event) const {
             if (!_condition) return true;
             return (*_condition)(event);
         }

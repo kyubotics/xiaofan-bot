@@ -43,7 +43,7 @@ namespace xiaofan {
             }
 
             template <typename E>
-            [[nodiscard]] bool __call__(const E &event) const {
+            bool __call__(const E &event) const {
                 return (*lhs)(event) && (*rhs)(event);
             }
 
@@ -73,7 +73,7 @@ namespace xiaofan {
             }
 
             template <typename E>
-            [[nodiscard]] bool __call__(const E &event) const {
+            bool __call__(const E &event) const {
                 return (*lhs)(event) || (*rhs)(event);
             }
 
@@ -115,7 +115,7 @@ namespace xiaofan {
             }
 
             template <typename E>
-            [[nodiscard]] bool __call__(const E &event) const {
+            bool __call__(const E &event) const {
                 return std::all_of(
                     conditions.cbegin(), conditions.cend(), [&](const auto &cond) { return (*cond)(event); });
             }
