@@ -1,15 +1,11 @@
-#include <cqcppsdk/cqcppsdk.h>
-#include <cqcppsdk/utils/string.h>
-
 #include <algorithm>
+#include <dolores/dolores.hpp>
 #include <regex>
-
-#include "handler.hpp"
 
 using namespace cq;
 using namespace cq::message;
-using namespace xiaofan;
-using namespace xiaofan::cond;
+using namespace dolores;
+using namespace dolores::cond;
 
 constexpr int64_t SUPERUSER_ID = 1002647525;
 
@@ -19,7 +15,7 @@ constexpr int64_t RELEASE_GROUP_ID = 615346135;
 constexpr int64_t RELEASE_GROUP_ID = 218529254;
 #endif
 
-REQUEST_HANDLER(approve_invitation, group() & user({SUPERUSER_ID})) {
+dolores_on_request(approve_invitation, group() & user({SUPERUSER_ID})) {
     try {
         session.approve();
     } catch (ApiError &) {
@@ -27,7 +23,7 @@ REQUEST_HANDLER(approve_invitation, group() & user({SUPERUSER_ID})) {
     session.event.block();
 }
 
-NOTICE_HANDLER(group_admin, type<GroupAdminEvent>, group::exclude({RELEASE_GROUP_ID})) {
+dolores_on_notice(group_admin, type<GroupAdminEvent>, group::exclude({RELEASE_GROUP_ID})) {
     if (session.event.user_id == get_login_user_id()
         && session.event_as<GroupAdminEvent>().sub_type == GroupAdminEvent::SubType::SET) {
         try {
@@ -37,7 +33,7 @@ NOTICE_HANDLER(group_admin, type<GroupAdminEvent>, group::exclude({RELEASE_GROUP
     }
 }
 
-NOTICE_HANDLER(welcome_new_member, type<GroupMemberIncreaseEvent>, group::exclude({RELEASE_GROUP_ID})) {
+dolores_on_notice(welcome_new_member, type<GroupMemberIncreaseEvent>, group::exclude({RELEASE_GROUP_ID})) {
     const auto &event = session.event_as<GroupMemberIncreaseEvent>();
     try {
         const auto mi = get_group_member_info(event.group_id, get_login_user_id());
@@ -52,7 +48,8 @@ NOTICE_HANDLER(welcome_new_member, type<GroupMemberIncreaseEvent>, group::exclud
     }
 }
 
-MESSAGE_HANDLER(ban, command("ban") | (startswith("小凡") & (contains("烟") | contains("禁言"))), group() & admin()) {
+dolores_on_message(ban, command({"ban", "b"}) | (startswith("小凡") & (contains("烟") | contains("禁言"))),
+                   group() & admin()) {
     const auto &event = session.event_as<GroupMessageEvent>();
     event.block();
 
@@ -112,7 +109,7 @@ MESSAGE_HANDLER(ban, command("ban") | (startswith("小凡") & (contains("烟") |
     }
 }
 
-MESSAGE_HANDLER(cqmoe_release, command("release") & contains("更新日志"), direct({SUPERUSER_ID})) {
+dolores_on_message(cqmoe_release, command("release") & contains("更新日志"), direct({SUPERUSER_ID})) {
     /*
      * 格式如:
      *

@@ -9,8 +9,6 @@ include_directories(extern/cqcppsdk/include)
 include(extern/cqcppsdk/cqcppsdk.cmake)
 file(GLOB_RECURSE SOURCE_FILES src/*.cpp)
 
-message(STATUS ${SOURCE_FILES})
-
 file(READ "app_id.txt" APP_ID)
 string(STRIP "${APP_ID}" APP_ID)
 
