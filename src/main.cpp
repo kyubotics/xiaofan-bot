@@ -4,7 +4,6 @@
 
 using namespace cq;
 using namespace cq::message;
-using namespace dolores;
 using namespace dolores::cond;
 
 constexpr int64_t SUPERUSER_ID = 1002647525;
@@ -41,7 +40,7 @@ dolores_on_notice(welcome_new_member, type<GroupMemberIncreaseEvent>, group::exc
             return;
         }
         try {
-            session.send("欢迎新群友👏👏", true);
+            session.reply("欢迎新群友👏");
         } catch (ApiError &) {
         }
     } catch (ApiError &) {
