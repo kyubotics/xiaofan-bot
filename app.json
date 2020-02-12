@@ -2,8 +2,8 @@
     "ret": 1,
     "apiver": 9,
     "name": "小凡秘书",
-    "version": "1.0.0",
-    "version_id": 1,
+    "version": "1.0.1",
+    "version_id": 1001,
     "author": "Richard Chien",
     "description": "群管小秘书莫小凡~",
     "event": [
