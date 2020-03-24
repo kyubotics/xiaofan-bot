@@ -3,24 +3,19 @@ project(xiaofan)
 
 set(CMAKE_CXX_STANDARD 17)
 
-include_directories(src)
-include_directories(extern/cqcppsdk/include)
-
 include(extern/cqcppsdk/cqcppsdk.cmake)
-file(GLOB_RECURSE SOURCE_FILES src/*.cpp)
+
+include_directories(src)
 
 file(READ "app_id.txt" APP_ID)
 string(STRIP "${APP_ID}" APP_ID)
-
 cq_set_app_id(${APP_ID})
 
-set(LIB_NAME "app")
+file(GLOB_RECURSE SOURCE_FILES src/*.cpp)
 
-if(MSVC AND (CMAKE_SIZEOF_VOID_P EQUAL 4)) # MSVC x86
-    cq_add_app(${LIB_NAME} ${SOURCE_FILES}) # 添加 std 模式的动态链接库构建目标
-    cq_add_install_script(${LIB_NAME} "${PROJECT_SOURCE_DIR}/scripts/install.ps1")
-endif()
+if (CQ_CAN_BUILD_STD_MODE)
+    cq_add_std_app(${SOURCE_FILES})
+    cq_install_std_app()
+endif ()
 
-# 添加 dev 模式的可执行文件构建目标
-set(CQCPPSDK_DEV_MODE ON)
-cq_add_app(${LIB_NAME}_dev ${SOURCE_FILES})
+cq_add_dev_app(${SOURCE_FILES})
